@@ -372,7 +372,7 @@ MODULE_PARM_DESC(watchdog, "transmit timeout in milliseconds");
  */
 static struct lpc178x_eth_data __lpc_local_net_config = {
 	.phy_irq = -1,
-	.phy_mask = 0xFFFFFFF0,
+	.phy_mask = 0xFFFF0000,
 };
 
 /*
@@ -823,7 +823,7 @@ static int lpc_mii_init(struct netdata_local *pldat)
 	snprintf(pldat->mii_bus->id, MII_BUS_ID_SIZE, "%x", pldat->pdev->id);
 	pldat->mii_bus->priv = pldat;
 	pldat->mii_bus->parent = &pldat->pdev->dev;
-	pldat->mii_bus->phy_mask = 0xFFFFFFF0;
+	pldat->mii_bus->phy_mask = 0xFFFF0000;
 
 	if (pldat->ncfg)
 		pldat->mii_bus->phy_mask = pldat->ncfg->phy_mask;
