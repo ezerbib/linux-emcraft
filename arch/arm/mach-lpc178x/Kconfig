@@ -45,6 +45,11 @@ config LPC178X_SPI0
 	bool "Enable LPC178x/7x SSP/SPI0 port"
 	default n
 
+config LPC178X_SPI1
+	depends on ARCH_LPC178X && SPI_PL022
+	bool "Enable LPC178x/7x SSP/SPI1 port"
+	default n
+
 config LPC178X_I2C0
 	depends on ARCH_LPC178X && I2C_LPC2K
 	bool "Enable LPC178X I2C0 port"

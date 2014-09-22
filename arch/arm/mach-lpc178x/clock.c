@@ -293,6 +293,15 @@ static struct clk clk_ssp0 = {
 	.pconp_mask	= LPC178X_SCC_PCONP_PCSSP0_MSK,
 };
 #endif
+/*
+ * Clock for SSP/SPI port SPI0 of the LPC178x.
+ * The clock rate is initialized in `lpc178x_clock_init()`.
+ */
+#if defined (CONFIG_LPC178X_SPI1)
+static struct clk clk_ssp1 = {
+	.pconp_mask	= LPC178X_SCC_PCONP_PCSSP1_MSK,
+};
+#endif
 
 /*
  * Clock for the SD Card Interface module of the MCU. The clock rate
@@ -361,6 +370,9 @@ static struct clk_lookup lpc178x_clkregs[] = {
 	INIT_CLKREG(&clk_net, "lpc-net.0", NULL),
 #if defined (CONFIG_LPC178X_SPI0)
 	INIT_CLKREG(&clk_ssp0, "dev:ssp0", NULL),
+#endif
+#if defined (CONFIG_LPC178X_SPI1)
+	INIT_CLKREG(&clk_ssp1, "dev:ssp1", NULL),
 #endif
 	INIT_CLKREG(&clk_dma, NULL, "clk_dmac"),
 	INIT_CLKREG(&clk_mci, "dev:mmc0", NULL),
@@ -497,6 +509,9 @@ void __init lpc178x_clock_init(void)
 	clk_mci.rate = clock_val[CLOCK_PCLK];
 #if defined (CONFIG_LPC178X_SPI0)
 	clk_ssp0.rate = clock_val[CLOCK_PCLK];
+#endif
+#if defined (CONFIG_LPC178X_SPI1)
+	clk_ssp1.rate = clock_val[CLOCK_PCLK];
 #endif
 #if defined(CONFIG_LPC178X_I2C0)
 	clk_i2c0.rate = clock_val[CLOCK_PCLK];

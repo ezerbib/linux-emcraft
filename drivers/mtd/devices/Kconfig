@@ -111,6 +111,16 @@ config MTD_SST25L
 
 	  Set up your spi devices with the right board-specific platform data,
 	  if you want to specify device partitioning.
+	  
+config MTD_M95M01_R
+    tristate "Support M95M01-R 1-Mbit SPI bus EEPROM chip"
+    depends on SPI_MASTER
+    help
+      This enables access to the M95M01-R 1-Mbit SPI bus EEPROM chip. 
+
+      Set up your spi devices with the right board-specific platform data,
+      if you want to specify device partitioning.
+
 
 config MTD_SLRAM
 	tristate "Uncached system RAM"

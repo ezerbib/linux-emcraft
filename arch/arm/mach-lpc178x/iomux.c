@@ -451,6 +451,28 @@ static const struct lpc178x_gpio_pin_config ea_lpc1788_gpio[] = {
 	{{0, 28}, LPC178X_GPIO_CONFIG_I(1, 0, 0, 0)},
 #endif
 
+#if defined(CONFIG_LPC178X_I2C1)
+	/*
+	 * Pin configuration for the I2C1 interface.
+	 *
+	 */
+	/* P0.0 (D) = I2C0_SDA */
+	{{0, 0}, LPC178X_GPIO_CONFIG_D(3,0,0,0,0,1)},
+	/* P0.1 (D) = I2C0_SDL */
+	{{0, 1}, LPC178X_GPIO_CONFIG_D(3,0,0,0,0,1)},
+#endif
+
+#if defined(CONFIG_LPC178X_I2C2)
+	/*
+	 * Pin configuration for the I2C1 interface.
+	 *
+	 */
+	/* P0.10 (D) = I2C2_SDA */
+	{{0, 10}, LPC178X_GPIO_CONFIG_D(2,0,0,0,0,1)},
+	/* P0.11 (D) = I2C2_SDL */
+	{{0, 11}, LPC178X_GPIO_CONFIG_D(2,0,0,0,0,1)},
+#endif
+
 #if defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C_GPIO_MODULE)
 	/*
 	 * Pin configuration to work with the I2C0 bus in the GPIO mode
@@ -583,6 +605,19 @@ static const struct lpc178x_gpio_pin_config lpc_lnx_evb_gpio[] = {
 	{{0, 17}, LPC178X_GPIO_CONFIG_D(2, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
 	/* P0.18 (D) = SSP0_MOSI */
 	{{0, 18}, LPC178X_GPIO_CONFIG_D(2, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+#endif
+#ifdef CONFIG_LPC178X_SPI1
+	/*
+	 * GPIO configuration for SPI/SSP1 - EPROM
+	 */
+	/* P0.7 (D) = SSP1_SCK */
+	{{0, 7}, LPC178X_GPIO_CONFIG_D(2, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	/* P0.4 (D) = P0[4] (driver controlled GPIO) */
+	{{0, 4}, LPC178X_GPIO_CONFIG_D(0, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	/* P0.8 (D) = SSP1_MISO */
+	{{0, 8}, LPC178X_GPIO_CONFIG_D(2, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	/* P0.9 (D) = SSP1_MOSI */
+	{{0, 9}, LPC178X_GPIO_CONFIG_D(2, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
 #endif
 };
 

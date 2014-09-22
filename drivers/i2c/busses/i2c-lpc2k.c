@@ -17,6 +17,7 @@
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  */
+//#define DEBUG
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -73,6 +74,7 @@ enum {
 
 /* I2C clock speed, 0 - 400000+Hz */
 static unsigned int scl_frequency = 100000;
+//static unsigned int scl_frequency = 400000;
 module_param(scl_frequency, uint,  0644);
 
 struct lpc2k_i2c {
@@ -156,6 +158,7 @@ static void i2c_lpc2k_pump_msg(struct lpc2k_i2c *i2c)
 
 		i2c_writel((unsigned long) data,
 			i2c->reg_base + LPC24XX_I2DAT);
+
 		i2c_writel(LPC24XX_STA,
 			i2c->reg_base + LPC24XX_I2CONCLR);
 
@@ -276,7 +279,7 @@ static void i2c_lpc2k_pump_msg(struct lpc2k_i2c *i2c)
 		i2c_writel(LPC24XX_STO | LPC24XX_AA,
 			i2c->reg_base + LPC24XX_I2CONSET);
 		i2c->msg_status = -ENODEV;
-		dev_dbg(&i2c->adap.dev, "Device NACKed, error\n");
+		dev_dbg(&i2c->adap.dev, "Device NACKed, error (0x%02x)\n",status);
 		disable_irq_nosync(i2c->irq);
 		break;
 
@@ -323,13 +326,29 @@ static int lpc2k_process_msg(struct lpc2k_i2c *i2c, int msgidx)
 	dev_dbg(&i2c->adap.dev, "Processing message %d (len=%d) (flags=%x)\n",
 		msgidx, i2c->msg->len, i2c->msg->flags);
 
+	//EZ special
+	if (i2c->msg->addr==0x5C || i2c->msg->addr==0x3B)
+	{
+		i2c_writel(150, i2c->reg_base + LPC24XX_I2SCLL);
+		i2c_writel(150, i2c->reg_base + LPC24XX_I2SCLH);
+	}
+	else
+	{
+		i2c_writel(0x258, i2c->reg_base + LPC24XX_I2SCLL);
+		i2c_writel(0x258, i2c->reg_base + LPC24XX_I2SCLH);
+	}
+
+
 	/*
 	 * A new transfer is kicked off by initiating a start condition
 	 */
-	if (!msgidx) {
+	if (!msgidx)
+	{
 		dev_dbg(&i2c->adap.dev, "Start sent\n");
 		i2c_writel(LPC24XX_STA, i2c->reg_base + LPC24XX_I2CONSET);
-	} else {
+	}
+	else
+	{
 		/*
 		 * A multi-message I2C transfer continues where the previous
 		 * I2C transfer left off and uses the current condition of the
@@ -362,11 +381,14 @@ static int lpc2k_process_msg(struct lpc2k_i2c *i2c, int msgidx)
 
 	/* Wait for transfer completion */
 	if (wait_event_timeout(i2c->wait, i2c->msg_status != -EBUSY,
-		HZ) == 0) {
+		HZ) == 0)
+	{
 		disable_irq_nosync(i2c->irq);
 		dev_dbg(&i2c->adap.dev, "Transfer timed out!\n");
 		ret = -ETIMEDOUT;
-	} else {
+	}
+	else
+	{
 		ret = i2c->msg_status;
 		if (ret == 0)
 			dev_dbg(&i2c->adap.dev, "Transfer successful\n");
@@ -523,6 +545,9 @@ static int i2c_lpc2k_probe(struct platform_device *dev)
 	clkrate = (clkrate / scl_frequency) / 2;
 	i2c_writel(clkrate, i2c->reg_base + LPC24XX_I2SCLL);
 	i2c_writel(clkrate, i2c->reg_base + LPC24XX_I2SCLH);
+	pr_info("********************* I2C set clock rate I2SCLL=0x%02x",	clkrate);
+	//i2c_writel(100, i2c->reg_base + LPC24XX_I2SCLL);
+	//i2c_writel(100, i2c->reg_base + LPC24XX_I2SCLH);
 
 	ret = i2c_add_numbered_adapter(&i2c->adap);
 	if (ret < 0) {
