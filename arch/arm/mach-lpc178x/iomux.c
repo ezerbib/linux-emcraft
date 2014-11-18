@@ -539,9 +539,9 @@ static const struct lpc178x_gpio_pin_config ea_lpc1788_gpio[] = {
 	 * Pin configuration for the I2S audio interface
 	 */
 	/* P0.4 (D) = I2S_RX_SCK */
-	{{0,  4}, LPC178X_GPIO_CONFIG_D(1, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	//{{0,  4}, LPC178X_GPIO_CONFIG_D(1, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
 	/* P0.5 (D) = I2S_RX_WS */
-	{{0,  5}, LPC178X_GPIO_CONFIG_D(1, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	//{{0,  5}, LPC178X_GPIO_CONFIG_D(1, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
 	/* P0.6 (D) = I2S_RX_SDA */
 	{{0,  6}, LPC178X_GPIO_CONFIG_D(1, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
 	/* P0.7 (W) = I2S_TX_SCK */
@@ -551,6 +551,35 @@ static const struct lpc178x_gpio_pin_config ea_lpc1788_gpio[] = {
 	/* P0.9 (W) = I2S_TX_SDA */
 	{{0,  9}, LPC178X_GPIO_CONFIG_W(1, LPC178X_NO_PULLUP, 0, 0, 0, 0, 0)},
 #endif /* CONFIG_SND_LPC3XXX_SOC || CONFIG_SND_LPC3XXX_SOC_MODULE */
+
+#ifdef CONFIG_LPC178X_SPI0
+	/*
+	 * GPIO configuration for SPI/SSP0
+	 */
+	/* P0.15 (D) = SSP0_SCK */
+	{{0, 15}, LPC178X_GPIO_CONFIG_D(2, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	/* P0.16 (D) = P0[16] (driver controlled GPIO) */
+	{{0, 16}, LPC178X_GPIO_CONFIG_D(0, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	/* P0.17 (D) = SSP0_MISO */
+	{{0, 17}, LPC178X_GPIO_CONFIG_D(2, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	/* P0.18 (D) = SSP0_MOSI */
+	{{0, 18}, LPC178X_GPIO_CONFIG_D(2, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+#endif
+#ifdef CONFIG_LPC178X_SPI1
+	/*
+	 * GPIO configuration for SPI/SSP1 - EPROM/FLASH
+	 */
+	/* P0.7 (D) = SSP1_SCK */
+	{{0, 7}, LPC178X_GPIO_CONFIG_W(2, LPC178X_NO_PULLUP, 0, 0, 1, 0, 0)},
+	/* P0.4 (D) = P0[4] (CS for EEPROM) */
+	{{0, 4}, LPC178X_GPIO_CONFIG_D(0, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	/* P0.5 (D) = P0[5] (CS for FLASH) */
+	{{0, 5}, LPC178X_GPIO_CONFIG_D(0, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	/* P0.8 (D) = SSP1_MISO */
+	{{0, 8}, LPC178X_GPIO_CONFIG_W(2, LPC178X_NO_PULLUP, 0, 0, 1, 0, 0)},
+	/* P0.9 (D) = SSP1_MOSI */
+	{{0, 9}, LPC178X_GPIO_CONFIG_W(2, LPC178X_NO_PULLUP, 0, 0, 1, 0, 0)},
+#endif
 };
 
 /*
@@ -608,16 +637,18 @@ static const struct lpc178x_gpio_pin_config lpc_lnx_evb_gpio[] = {
 #endif
 #ifdef CONFIG_LPC178X_SPI1
 	/*
-	 * GPIO configuration for SPI/SSP1 - EPROM
+	 * GPIO configuration for SPI/SSP1 - EPROM/FLASH
 	 */
 	/* P0.7 (D) = SSP1_SCK */
-	{{0, 7}, LPC178X_GPIO_CONFIG_D(2, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
-	/* P0.4 (D) = P0[4] (driver controlled GPIO) */
+	{{0, 7}, LPC178X_GPIO_CONFIG_W(2, LPC178X_NO_PULLUP, 0, 0, 0, 0, 0)},
+	/* P0.4 (D) = P0[4] (CS for EEPROM) */
 	{{0, 4}, LPC178X_GPIO_CONFIG_D(0, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	/* P0.5 (D) = P0[5] (CS for FLASH) */
+	{{0, 5}, LPC178X_GPIO_CONFIG_D(0, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
 	/* P0.8 (D) = SSP1_MISO */
-	{{0, 8}, LPC178X_GPIO_CONFIG_D(2, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	{{0, 8}, LPC178X_GPIO_CONFIG_W(2, LPC178X_NO_PULLUP, 0, 0, 0, 0, 0)},
 	/* P0.9 (D) = SSP1_MOSI */
-	{{0, 9}, LPC178X_GPIO_CONFIG_D(2, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	{{0, 9}, LPC178X_GPIO_CONFIG_W(2, LPC178X_NO_PULLUP, 0, 0, 0, 0, 0)},
 #endif
 };
 

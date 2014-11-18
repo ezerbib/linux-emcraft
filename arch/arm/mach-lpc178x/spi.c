@@ -81,14 +81,14 @@ static struct amba_device lpc178x_spi0_dev = {
 /*
  * Chip Select control for the SPI Flash on SPI0 of LPC-LNX eval board
  */
-#define SPI_FLASH_CS_GRP__LPC178X_EVAL	0
-#define SPI_FLASH_CS_PIN__LPC178X_EVAL	16
+#define SPI_FLASH_CS_GRP__LPC178X_EVAL_AUDIO	0
+#define SPI_FLASH_CS_PIN__LPC178X_EVAL_AUDIO	16
 
 static void spi_lpc178x_flash_cs__lpc178x_eval(u32 control)
 {
 	// AUDIO SPI CS
-	lpc178x_gpio_out(SPI_FLASH_CS_GRP__LPC178X_EVAL, 
-				SPI_FLASH_CS_PIN__LPC178X_EVAL, control); 
+	lpc178x_gpio_out(SPI_FLASH_CS_GRP__LPC178X_EVAL_AUDIO,
+				SPI_FLASH_CS_PIN__LPC178X_EVAL_AUDIO, control);
 }
 
 #endif
@@ -127,18 +127,30 @@ static struct amba_device lpc178x_spi1_dev = {
 
 
 #if defined(CONFIG_LPC178X_SPI1)
+/*
+ * Chip Select control for the SPI Flash on SPI1 of kramer board
+ */
+#define SPI_FLASH_CS_GRP__LPC178X_EVAL_FLASH	0
+#define SPI_FLASH_CS_PIN__LPC178X_EVAL_FLASH	5
+
+static void spi_lpc178x_flash_cs__lpc178x_eval_ssp1_flash(u32 control)
+{
+	// FLASH SPI CS
+	lpc178x_gpio_out(SPI_FLASH_CS_GRP__LPC178X_EVAL_FLASH,
+				SPI_FLASH_CS_PIN__LPC178X_EVAL_FLASH, control);
+}
 
 /*
- * Chip Select control for the SPI Flash on SPI0 of LPC-LNX eval board
+ * Chip Select control for the SPI Flash on SPI1 of of kramer board
  */
-#define SPI_FLASH_CS_GRP__LPC178X_EVAL_1	0
-#define SPI_FLASH_CS_PIN__LPC178X_EVAL_1	4
+#define SPI_FLASH_CS_GRP__LPC178X_EVAL_EEPROM	0
+#define SPI_FLASH_CS_PIN__LPC178X_EVAL_EEPROM	4
 
-static void spi_lpc178x_flash_cs__lpc178x_eval_ssp1(u32 control)
+static void spi_lpc178x_flash_cs__lpc178x_eval_ssp1_audio(u32 control)
 {
-	// AUDIO SPI CS
-	lpc178x_gpio_out(SPI_FLASH_CS_GRP__LPC178X_EVAL_1,
-				SPI_FLASH_CS_PIN__LPC178X_EVAL_1, control);
+	// EEPROM SPI CS
+	lpc178x_gpio_out(SPI_FLASH_CS_GRP__LPC178X_EVAL_EEPROM,
+				SPI_FLASH_CS_PIN__LPC178X_EVAL_EEPROM, control);
 }
 
 #endif
@@ -168,7 +180,7 @@ void  lpc178x_spi_init(void)
 		/*
  		 * SPI slave
  		 */
-		static struct pl022_config_chip spi0_slave = {
+		static struct pl022_config_chip spi0_slave_audio = {
  			.com_mode = INTERRUPT_TRANSFER,
 			.iface = SSP_INTERFACE_MOTOROLA_SPI,
 			.hierarchy = SSP_MASTER,
@@ -189,11 +201,11 @@ void  lpc178x_spi_init(void)
 		}; 
 
 		static struct spi_board_info spi0_board_info = {
-			.modalias = "mmc_spi",
-			.max_speed_hz = 10000000,
+			.modalias = "spidev",
+			.max_speed_hz = 10000000, //10Mhz
 			.bus_num = 0,
 			.chip_select = 0,
-			.controller_data = &spi0_slave,
+			.controller_data = &spi0_slave_audio,
 			.mode = SPI_MODE_0,
 			.platform_data = &mmc_pdata, 
 		};
@@ -201,10 +213,10 @@ void  lpc178x_spi_init(void)
 		/*
 		 * Set up the Chip Select GPIO for the SPI Flash
 		 */
-		lpc178x_gpio_dir(SPI_FLASH_CS_GRP__LPC178X_EVAL, 
-			SPI_FLASH_CS_PIN__LPC178X_EVAL, 1);
-		lpc178x_gpio_out(SPI_FLASH_CS_GRP__LPC178X_EVAL, 
-				SPI_FLASH_CS_PIN__LPC178X_EVAL, 1);
+		lpc178x_gpio_dir(SPI_FLASH_CS_GRP__LPC178X_EVAL_AUDIO,
+			SPI_FLASH_CS_PIN__LPC178X_EVAL_AUDIO, 1);
+		lpc178x_gpio_out(SPI_FLASH_CS_GRP__LPC178X_EVAL_AUDIO,
+				SPI_FLASH_CS_PIN__LPC178X_EVAL_AUDIO, 1);
 
 		/*
 		 * Register SPI slaves
@@ -221,7 +233,7 @@ void  lpc178x_spi_init(void)
 				 * SPI Flash partitioning:
 				 */
 		#		define FLASH_IMAGE_OFFSET__LPC18XX_EVAL	0x40000
-		#		define FLASH_JFFS2_OFFSET__LPC18XX_EVAL	(6*1024*1024)
+		#		define FLASH_JFFS2_OFFSET__LPC18XX_EVAL	(3*1024*1024)
 				static struct mtd_partition
 					spi_lpc178x_flash_partitions__lpc178x_eval[] = {
 					{
@@ -246,17 +258,38 @@ void  lpc178x_spi_init(void)
 		 		 */
 				static struct flash_platform_data
 					spi_lpc18xx_flash_data__lpc18xx_eval = {
-					.name = "m95m01_r",
+					.name = "sst25vf032b",
 					.parts =  spi_lpc178x_flash_partitions__lpc178x_eval,
 					.nr_parts =
 					ARRAY_SIZE(spi_lpc178x_flash_partitions__lpc178x_eval),
-					.type = "m95m01_r",
+					.type = "sst25vf032b",
+				};
+				
+				static struct mtd_partition
+					spi_lpc178x_eeprom_partitions__lpc178x_eval[] = {
+					{
+						.name	= "nvdata",
+						.offset = 0,
+						.size	= 32768,
+					},
+				};
+				
+				/*
+				 * SPI EEPROM
+		 		 */
+				static struct flash_platform_data
+					spi_lpc18xx_eeprom_data__lpc18xx_eval = {
+					.name = "m95256wm",
+					.parts =  spi_lpc178x_eeprom_partitions__lpc178x_eval,
+					.nr_parts =
+					ARRAY_SIZE(spi_lpc178x_eeprom_partitions__lpc178x_eval),
+					.type = "m95256wm",
 				};
 //#endif
 		/*
  		 * SPI slave
  		 */
-		static struct pl022_config_chip spi1_slave = {
+		static struct pl022_config_chip spi1_slave_flash = {
  			.com_mode = INTERRUPT_TRANSFER,
 			.iface = SSP_INTERFACE_MOTOROLA_SPI,
 			.hierarchy = SSP_MASTER,
@@ -267,55 +300,66 @@ void  lpc178x_spi_init(void)
 			.data_size = SSP_DATA_BITS_8,
 			.wait_state = SSP_MWIRE_WAIT_ZERO,
 			.duplex = SSP_MICROWIRE_CHANNEL_FULL_DUPLEX,
-			.cs_control = spi_lpc178x_flash_cs__lpc178x_eval_ssp1,
+			.cs_control = spi_lpc178x_flash_cs__lpc178x_eval_ssp1_flash,
+		};
+
+		static struct pl022_config_chip spi1_slave_eeprom = {
+ 			.com_mode = INTERRUPT_TRANSFER,
+			.iface = SSP_INTERFACE_MOTOROLA_SPI,
+			.hierarchy = SSP_MASTER,
+			.slave_tx_disable = 0,
+			.rx_lev_trig = SSP_RX_4_OR_MORE_ELEM,
+			.tx_lev_trig = SSP_TX_4_OR_MORE_EMPTY_LOC,
+			.ctrl_len = SSP_BITS_8,
+			.data_size = SSP_DATA_BITS_8,
+			.wait_state = SSP_MWIRE_WAIT_ZERO,
+			.duplex = SSP_MICROWIRE_CHANNEL_FULL_DUPLEX,
+			.cs_control = spi_lpc178x_flash_cs__lpc178x_eval_ssp1_audio,
 		};
 
 
+		/*
+		 * Chip disable
+		 */
+		lpc178x_gpio_out(SPI_FLASH_CS_GRP__LPC178X_EVAL_FLASH,
+				SPI_FLASH_CS_PIN__LPC178X_EVAL_FLASH, 1);
+		lpc178x_gpio_out(SPI_FLASH_CS_GRP__LPC178X_EVAL_EEPROM,
+				SPI_FLASH_CS_PIN__LPC178X_EVAL_EEPROM, 1);
 
 		/*
 		 * Set up the Chip Select GPIO for the SPI Flash
 		 */
-		lpc178x_gpio_dir(SPI_FLASH_CS_GRP__LPC178X_EVAL_1,
-			SPI_FLASH_CS_PIN__LPC178X_EVAL_1, 1);
+		lpc178x_gpio_dir(SPI_FLASH_CS_GRP__LPC178X_EVAL_FLASH,
+			SPI_FLASH_CS_PIN__LPC178X_EVAL_FLASH, 1);
+		lpc178x_gpio_dir(SPI_FLASH_CS_GRP__LPC178X_EVAL_EEPROM,
+			SPI_FLASH_CS_PIN__LPC178X_EVAL_EEPROM, 1);
+
 		/*
-		 * Chip disable
+		 * I'm not sure about theses structures ?
 		 */
-		lpc178x_gpio_out(SPI_FLASH_CS_GRP__LPC178X_EVAL_1,
-				SPI_FLASH_CS_PIN__LPC178X_EVAL_1, 1);
-
-		static struct mmc_spi_platform_data mmc_pdata_1 = {
-						.detect_delay = 100,
-						.powerup_msecs = 100,
-						.ocr_mask = MMC_VDD_32_33 | MMC_VDD_33_34,
-				};
-
-		static struct mmc_spi_platform_data mmc_pdata_2 = {
-						.detect_delay = 100,
-						.powerup_msecs = 100,
-						.ocr_mask = MMC_VDD_32_33 | MMC_VDD_33_34,
-				};
+		
 
 		static struct spi_board_info spi1_board_info[] = {
 				{
-					.modalias = "m95m01_r",
-					.max_speed_hz = 10000000,  //10MHZ
+					.modalias = "m25p80",
+					.max_speed_hz = 24000000,  //24MHZ - 25MHz in datasheet for READ
 					.bus_num = 1,
 					.chip_select = 0,
-					.controller_data = &spi1_slave,
+					.controller_data = &spi1_slave_flash,
 					.mode = SPI_MODE_0,
-					.platform_data = &mmc_pdata_1,
+					.platform_data = &spi_lpc18xx_flash_data__lpc18xx_eval,
 				},
 				{
 					/*
 					 * SPIDEV
 					 */
-					.modalias = "spidev",
-					.platform_data = &mmc_pdata_2,
-					.max_speed_hz = 25000000,
+					.modalias = "m95m01_r",
+					.max_speed_hz = 10000000,  //10MHZ
 					.bus_num = 1,
 					.chip_select = 1,
-					.controller_data = &spi1_slave,
+					.controller_data = &spi1_slave_eeprom,
 					.mode = SPI_MODE_0,
+					.platform_data = &spi_lpc18xx_eeprom_data__lpc18xx_eval,
 				}};
 		/*
 		 * Register SPI slaves

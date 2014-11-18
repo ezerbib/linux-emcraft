@@ -756,6 +756,9 @@ int gpio_export(unsigned gpio, bool direction_may_change)
 				status = device_create_file(dev,
 						&dev_attr_direction);
 
+			//EZ
+			//status = device_create_file(dev,&dev_attr_edge);
+			pr_info("** EZ : gpio_to_irq(gpio) = %d \n",gpio_to_irq(gpio));
 			if (!status && gpio_to_irq(gpio) >= 0
 					&& (direction_may_change
 						|| !test_bit(FLAG_IS_OUT,
