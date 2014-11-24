@@ -232,8 +232,10 @@ void  lpc178x_spi_init(void)
 				/*
 				 * SPI Flash partitioning:
 				 */
-		#		define FLASH_IMAGE_OFFSET__LPC18XX_EVAL	0x40000
-		#		define FLASH_JFFS2_OFFSET__LPC18XX_EVAL	(3*1024*1024)
+		// 128K
+		#define FLASH_IMAGE_OFFSET__LPC18XX_EVAL	0x20000
+		// 2.5 Mb
+		#define FLASH_JFFS2_OFFSET__LPC18XX_EVAL	(2*1024*1024+500*1024) + FLASH_IMAGE_OFFSET__LPC18XX_EVAL
 				static struct mtd_partition
 					spi_lpc178x_flash_partitions__lpc178x_eval[] = {
 					{

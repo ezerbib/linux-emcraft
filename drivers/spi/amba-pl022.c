@@ -638,7 +638,7 @@ static void readwriter(struct pl022 *pl022)
 		 * This inner reader takes care of things appearing in the RX
 		 * FIFO as we're transmitting. This will happen a lot since the
 		 * clock starts running when you put things into the TX FIFO,
-		 * and then things are continously clocked into the RX FIFO.
+		 * and then things are continuously clocked into the RX FIFO.
 		 */
 		while ((readw(SSP_SR(pl022->virtbase)) & SSP_SR_MASK_RNE)
 		       && (pl022->rx < pl022->rx_end)) {

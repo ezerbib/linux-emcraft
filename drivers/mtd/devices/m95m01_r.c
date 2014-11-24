@@ -12,8 +12,6 @@
  * published by the Free Software Foundation.
  *
  */
-#define DEBUG
-
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/device.h>
@@ -43,7 +41,6 @@
 #define M95M01_R_STATUS_BP0   (1 << 2)   /* Block protection 0 */
 #define M95M01_R_STATUS_BP1   (1 << 3)   /* Block protection 1 */
 
-#define DEBUG
 
 #ifdef DEBUG 
   #define DBGPRINT(string, args...) \
