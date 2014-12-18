@@ -372,7 +372,7 @@ static int gpio_set_irq_type(unsigned int irq, unsigned int type)
 	int port;
 	int pin;
 
-	pr_info("call gpio_set_irq_type(unsigned int irq=%d, unsigned int type=%d)\n",irq,type);
+	//pr_info("call gpio_set_irq_type(unsigned int irq=%d, unsigned int type=%d)\n",irq,type);
 	port=gpio/32;
 	pin=gpio%32;
 	switch (type) {
