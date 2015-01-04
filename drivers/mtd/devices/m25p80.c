@@ -539,9 +539,13 @@ static int sst_write(struct mtd_info *mtd, loff_t to, size_t len,
 		t[1].tx_buf = buf + actual;
 
 		spi_sync(flash->spi, &m);
+#if 0
+		// wait 200ms per call but the previous spi_sync is also 190ms
+		// so we don't need to wait it while the spec of the flash is only 10 micro sec
 		ret = wait_till_ready(flash);
 		if (ret)
 			goto time_out;
+#endif
 		*retlen += m.actual_length - cmd_sz;
 		cmd_sz = 1;
 		to += 2;

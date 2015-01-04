@@ -345,6 +345,7 @@ void  lpc178x_spi_init(void)
 				{
 					.modalias = "m25p80",
 					.max_speed_hz = 24000000,  //24MHZ - 25MHz in datasheet for READ
+					//.max_speed_hz = 10000000,  //10MHZ -
 					.bus_num = 1,
 					.chip_select = 0,
 					.controller_data = &spi1_slave_flash,

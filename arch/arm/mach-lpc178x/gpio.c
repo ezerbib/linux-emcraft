@@ -273,7 +273,7 @@ static int lpc178x_gpio_direction_input(struct gpio_chip *chip, unsigned gpio)
 {
 	LPC178X_GPIO(LPC178X_GPIO_GETPORT(gpio))->fiodir &=
 		~(1 << LPC178X_GPIO_GETPIN(gpio));
-	gpio_set_irq_type(gpio,IRQ_TYPE_EDGE_BOTH);
+	//gpio_set_irq_type(gpio,IRQ_TYPE_EDGE_BOTH);
 	return 0;
 }
 
@@ -348,6 +348,7 @@ static void gpio_ack_irq(unsigned int irq)
 //	unsigned int base = GPIO_BASE(gpio / 32);
 //
 //	__raw_writel(1 << (gpio % 32), base + GPIO_INT_CLR);
+	//pr_err("EZ: call gpio_ack_irq(unsigned int irq=%d) \n",irq);
 }
 
 static void gpio_mask_irq(unsigned int irq)
@@ -356,6 +357,7 @@ static void gpio_mask_irq(unsigned int irq)
 //	unsigned int base = GPIO_BASE(gpio / 32);
 //
 //	_set_gpio_irqenable(base, gpio % 32, 0);
+	//pr_err("EZ: call gpio_mask_irq(unsigned int irq=%d) \n",irq);
 }
 
 static void gpio_unmask_irq(unsigned int irq)
@@ -364,6 +366,7 @@ static void gpio_unmask_irq(unsigned int irq)
 //	unsigned int base = GPIO_BASE(gpio / 32);
 //
 //	_set_gpio_irqenable(base, gpio % 32, 1);
+	//pr_err("EZ: call gpio_unmask_irq(unsigned int irq=%d) \n",irq);
 }
 
 static int gpio_set_irq_type(unsigned int irq, unsigned int type)
@@ -372,7 +375,7 @@ static int gpio_set_irq_type(unsigned int irq, unsigned int type)
 	int port;
 	int pin;
 
-	//pr_info("call gpio_set_irq_type(unsigned int irq=%d, unsigned int type=%d)\n",irq,type);
+	//pr_info("EZ: call gpio_set_irq_type(unsigned int irq=%d, unsigned int type=%d)\n",irq,type);
 	port=gpio/32;
 	pin=gpio%32;
 	switch (type) {
@@ -486,16 +489,16 @@ void lpc178x_gpio_irq_setup(void)
 #endif
 
 		set_irq_chip(GPIO_IRQ_BASE, &gpio_irq_chip);
-		//set_irq_handler(GPIO_IRQ_BASE, handle_edge_irq);
-		set_irq_handler(GPIO_IRQ_BASE,handle_simple_irq);
+		set_irq_handler(GPIO_IRQ_BASE, handle_edge_irq);
+		//set_irq_handler(GPIO_IRQ_BASE,handle_simple_irq);
 		set_irq_flags(GPIO_IRQ_BASE, IRQF_VALID);
 
-		//set_irq_chained_handler((int)GPIO_IRQn, gpio_irq_handler);
-		//set_irq_data((int)GPIO_IRQn, (void *)i);
+		set_irq_chained_handler((int)GPIO_IRQn, gpio_irq_handler);
+		set_irq_data((int)GPIO_IRQn, (void *)i);
 	}
 
 	//install_irq(IRQn_Type IntNumber,void (*HandlerAddr)(void)__irq,unsigned int Priority)// enable InterruptHandler
-#if 1
+#if 0
 	if(0!=install_irq(GPIO_IRQn,GPIO_IRQHandler,NORMAL_PRIORITY))
 	{
 		pr_err("lpc178x:  failed to install gpio irqs\n");
@@ -504,4 +507,7 @@ void lpc178x_gpio_irq_setup(void)
 #endif
 	pr_info("lpc178x:  gpio irqs installed\n");
 }
+
+
+
 

@@ -1574,6 +1574,7 @@ static int pl022_setup(struct spi_device *spi)
 
 	chip->cpsr = chip_info->clk_freq.cpsdvsr;
 
+	//pr_err("=================== pl022_setup() chip->cpsr =%d \n",chip->cpsr);
 	SSP_WRITE_BITS(chip->cr0, chip_info->data_size, SSP_CR0_MASK_DSS, 0);
 	SSP_WRITE_BITS(chip->cr0, chip_info->duplex, SSP_CR0_MASK_HALFDUP, 5);
 	SSP_WRITE_BITS(chip->cr0, chip_info->clk_pol, SSP_CR0_MASK_SPO, 6);
@@ -1581,6 +1582,11 @@ static int pl022_setup(struct spi_device *spi)
 	SSP_WRITE_BITS(chip->cr0, chip_info->clk_freq.scr, SSP_CR0_MASK_SCR, 8);
 	SSP_WRITE_BITS(chip->cr0, chip_info->ctrl_len, SSP_CR0_MASK_CSS, 16);
 	SSP_WRITE_BITS(chip->cr0, chip_info->iface, SSP_CR0_MASK_FRF, 21);
+	//pr_err("=================== chip->cr0=0x%X chip_info->clk_freq.scr=%d\n",chip->cr0,chip_info->clk_freq.scr);
+	//chip->cr0 = 0xC7;
+	//chip->cpsr = 0x;
+	//pr_err("=================== change to chip->cr0=0x%X chip->cpsr=0x%X chip_info->clk_freq.scr=%d\n",chip->cr0,chip->cpsr,chip_info->clk_freq.scr);
+
 	SSP_WRITE_BITS(chip->cr1, chip_info->lbm, SSP_CR1_MASK_LBM, 0);
 	SSP_WRITE_BITS(chip->cr1, SSP_DISABLED, SSP_CR1_MASK_SSE, 1);
 	SSP_WRITE_BITS(chip->cr1, chip_info->hierarchy, SSP_CR1_MASK_MS, 2);
