@@ -580,6 +580,18 @@ static const struct lpc178x_gpio_pin_config ea_lpc1788_gpio[] = {
 	/* P0.9 (D) = SSP1_MOSI */
 	{{0, 9}, LPC178X_GPIO_CONFIG_W(2, LPC178X_NO_PULLUP, 0, 0, 1, 0, 0)},
 #endif
+	/// CPLD access
+	// note if we are setting these pin at kernel boot the kernel restart in infinite loop
+	/* EMC OE */
+	{{4,24}, LPC178X_GPIO_CONFIG_D(1, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	/* EMC WE */
+	//{{4,25}, LPC178X_GPIO_CONFIG_D(1, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	/* EMC BLS0 */
+	{{4,26}, LPC178X_GPIO_CONFIG_D(1, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	/* CPLD CS0 */
+	{{4,30}, LPC178X_GPIO_CONFIG_D(1, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
+	/* CPLD Interrupt */
+	{{2,12}, LPC178X_GPIO_CONFIG_D(0, LPC178X_NO_PULLUP, 0, 0, 0, 0)},
 };
 
 /*
@@ -650,6 +662,8 @@ static const struct lpc178x_gpio_pin_config lpc_lnx_evb_gpio[] = {
 	/* P0.9 (D) = SSP1_MOSI */
 	{{0, 9}, LPC178X_GPIO_CONFIG_W(2, LPC178X_NO_PULLUP, 0, 0, 0, 0, 0)},
 #endif
+/* EZ - WARNING DONT ADD IOMUX HERE but in upper structure */
+
 };
 
 /*
