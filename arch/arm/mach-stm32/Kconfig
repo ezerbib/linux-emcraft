@@ -117,6 +117,16 @@ config STM32_RTC
 	bool "Enable STM32 RTC"
 	default n
 
+config STM32_USB_OTG_FS
+	depends on ARCH_STM32 && USB_DWC2
+	bool "Enable STM32 USB OTG FS"
+	default n
+
+config STM32_USB_OTG_HS
+	depends on ARCH_STM32 && USB_DWC2
+	bool "Enable STM32 USB OTG HS"
+	default n
+
 endmenu
 
 endif
