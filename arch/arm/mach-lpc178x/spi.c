@@ -56,6 +56,7 @@ static struct pl022_ssp_controller lpc178x_spi0_data = {
 	.bus_id                 = 0,
 	.num_chipselect         = 8,
 	.enable_dma             = 0,
+	.rt                     = 1
 };
 
 static struct amba_device lpc178x_spi0_dev = {
@@ -105,6 +106,7 @@ static struct pl022_ssp_controller lpc178x_spi1_data = {
 	.bus_id                 = 1,
 	.num_chipselect         = 8,
 	.enable_dma             = 0,
+	.rt                     = 1
 };
 
 static struct amba_device lpc178x_spi1_dev = {
