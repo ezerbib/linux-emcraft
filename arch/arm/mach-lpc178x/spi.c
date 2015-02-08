@@ -294,17 +294,22 @@ void  lpc178x_spi_init(void)
  		 * SPI slave
  		 */
 		static struct pl022_config_chip spi1_slave_flash = {
- 			.com_mode = INTERRUPT_TRANSFER,
+ 	//		.com_mode = INTERRUPT_TRANSFER,
+			.com_mode = POLLING_TRANSFER,
 			.iface = SSP_INTERFACE_MOTOROLA_SPI,
+			//.iface =SSP_INTERFACE_TI_SYNC_SERIAL,
+ 			//.iface =SSP_INTERFACE_NATIONAL_MICROWIRE,
+			//	SSP_INTERFACE_UNIDIRECTIONAL
 			.hierarchy = SSP_MASTER,
 			.slave_tx_disable = 0,
 			.rx_lev_trig = SSP_RX_4_OR_MORE_ELEM,
 			.tx_lev_trig = SSP_TX_4_OR_MORE_EMPTY_LOC,
-			.ctrl_len = SSP_BITS_8,
+			.ctrl_len = SSP_BITS_16,
 			//.data_size = SSP_DATA_BITS_8,
 			.wait_state = SSP_MWIRE_WAIT_ZERO,
 			.duplex = SSP_MICROWIRE_CHANNEL_FULL_DUPLEX,
 			.cs_control = spi_lpc178x_flash_cs__lpc178x_eval_ssp1_flash,
+			//.clk_freq= {4,0}
 		};
 
 		static struct pl022_config_chip spi1_slave_eeprom = {
@@ -346,7 +351,7 @@ void  lpc178x_spi_init(void)
 		static struct spi_board_info spi1_board_info[] = {
 				{
 					.modalias = "m25p80",
-					.max_speed_hz = 24000000,  //24MHZ - 25MHz in datasheet for READ
+					.max_speed_hz = 25000000,  //24MHZ - 25MHz in datasheet for READ
 					//.max_speed_hz = 10000000,  //10MHZ -
 					.bus_num = 1,
 					.chip_select = 0,

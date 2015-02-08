@@ -24,6 +24,7 @@
  * GNU General Public License for more details.
  */
 
+
 /*
  * TODO:
  * - add timeout on polled transfers
@@ -286,6 +287,7 @@
 
 #define CLEAR_ALL_INTERRUPTS  0x3
 
+#define SPI_POLLING_TIMEOUT 1000
 
 /*
  * The type of reading going on on this chip
@@ -518,7 +520,8 @@ static void giveback(struct pl022 *pl022)
 	if (msg->complete)
 		msg->complete(msg->context);
 	/* This message is completed, so let's turn off the clocks & power */
-	clk_disable(pl022->clk);
+	//clk_disable(pl022->clk);
+
 	//amba_pclk_disable(pl022->adev);
 	//amba_vcore_disable(pl022->adev);
 }
@@ -784,6 +787,7 @@ static void *next_transfer(struct pl022 *pl022)
  * access to the generic DMA devices/DMA engine.
  */
 #ifdef CONFIG_DMA_ENGINE
+#error
 static void unmap_free_dma_scatter(struct pl022 *pl022)
 {
 	/* Unmap and free the SG tables */
@@ -1381,6 +1385,7 @@ static void do_polling_transfer(struct pl022 *pl022)
 	struct spi_transfer *transfer = NULL;
 	struct spi_transfer *previous = NULL;
 	struct chip_data *chip;
+	unsigned long time, timeout;
 
 	chip = pl022->cur_chip;
 	message = pl022->cur_msg;
@@ -1418,9 +1423,19 @@ static void do_polling_transfer(struct pl022 *pl022)
 		       SSP_CR1(pl022->virtbase));
 
 		dev_dbg(&pl022->adev->dev, "polling transfer ongoing ...\n");
-		/* FIXME: insert a timeout so we don't hang here indefinitely */
-		while (pl022->tx < pl022->tx_end || pl022->rx < pl022->rx_end)
+
+		timeout = jiffies + msecs_to_jiffies(SPI_POLLING_TIMEOUT);
+		while (pl022->tx < pl022->tx_end || pl022->rx < pl022->rx_end) {
+			time = jiffies;
 			readwriter(pl022);
+			if (time_after(time, timeout)) {
+				dev_warn(&pl022->adev->dev,
+				"%s: timeout!\n", __func__);
+				message->state = STATE_ERROR;
+				goto out;
+			}
+			cpu_relax();
+		}
 
 		/* Update total byte transferred */
 		message->actual_length += pl022->cur_transfer->len;
@@ -1429,7 +1444,7 @@ static void do_polling_transfer(struct pl022 *pl022)
 		/* Move to next transfer */
 		message->state = next_transfer(pl022);
 	}
-
+out:
 	/* Handle end of message */
 	if (message->state == STATE_DONE)
 		message->status = 0;
@@ -1450,6 +1465,7 @@ static void do_polling_transfer(struct pl022 *pl022)
  * based on the kind of the transfer
  *
  */
+static int clk_en=0;
 static void pump_messages(struct kthread_work *work)
 {
 	struct pl022 *pl022 =
@@ -1491,7 +1507,11 @@ static void pump_messages(struct kthread_work *work)
 	 */
 	//amba_vcore_enable(pl022->adev);
 	//amba_pclk_enable(pl022->adev);
-	clk_enable(pl022->clk);
+	if (!clk_en)
+	{
+		clk_enable(pl022->clk);
+		clk_en=1;
+	}
 	restore_state(pl022);
 	flush(pl022);
 
@@ -1646,14 +1666,52 @@ static int verify_controller_parameters(struct pl022 *pl022,
 			"Communication mode is configured incorrectly\n");
 		return -EINVAL;
 	}
-	if ((chip_info->rx_lev_trig < SSP_RX_1_OR_MORE_ELEM)
-	    || (chip_info->rx_lev_trig > SSP_RX_32_OR_MORE_ELEM)) {
+	switch (chip_info->rx_lev_trig) {
+	case SSP_RX_1_OR_MORE_ELEM:
+	case SSP_RX_4_OR_MORE_ELEM:
+	case SSP_RX_8_OR_MORE_ELEM:
+		/* These are always OK, all variants can handle this */
+		break;
+	case SSP_RX_16_OR_MORE_ELEM:
+		if (pl022->vendor->fifodepth < 16) {
+			dev_err(&pl022->adev->dev,
+			"RX FIFO Trigger Level is configured incorrectly\n");
+			return -EINVAL;
+		}
+		break;
+	case SSP_RX_32_OR_MORE_ELEM:
+		if (pl022->vendor->fifodepth < 32) {
+			dev_err(&pl022->adev->dev,
+			"RX FIFO Trigger Level is configured incorrectly\n");
+			return -EINVAL;
+		}
+		break;
+	default:
 		dev_err(&pl022->adev->dev,
 			"RX FIFO Trigger Level is configured incorrectly\n");
 		return -EINVAL;
 	}
-	if ((chip_info->tx_lev_trig < SSP_TX_1_OR_MORE_EMPTY_LOC)
-	    || (chip_info->tx_lev_trig > SSP_TX_32_OR_MORE_EMPTY_LOC)) {
+	switch (chip_info->tx_lev_trig) {
+	case SSP_TX_1_OR_MORE_EMPTY_LOC:
+	case SSP_TX_4_OR_MORE_EMPTY_LOC:
+	case SSP_TX_8_OR_MORE_EMPTY_LOC:
+		/* These are always OK, all variants can handle this */
+		break;
+	case SSP_TX_16_OR_MORE_EMPTY_LOC:
+		if (pl022->vendor->fifodepth < 16) {
+			dev_err(&pl022->adev->dev,
+			"TX FIFO Trigger Level is configured incorrectly\n");
+			return -EINVAL;
+		}
+		break;
+	case SSP_TX_32_OR_MORE_EMPTY_LOC:
+		if (pl022->vendor->fifodepth < 32) {
+			dev_err(&pl022->adev->dev,
+			"TX FIFO Trigger Level is configured incorrectly\n");
+			return -EINVAL;
+		}
+		break;
+	default:
 		dev_err(&pl022->adev->dev,
 			"TX FIFO Trigger Level is configured incorrectly\n");
 		return -EINVAL;
@@ -2156,6 +2214,7 @@ pl022_probe(struct amba_device *adev, struct amba_id *id)
 			"probe - problem registering spi master\n");
 		goto err_spi_register;
 	}
+
 	dev_dbg(dev, "probe succeeded\n");
 	/*
 	 * Disable the silicon block pclk and any voltage domain and just

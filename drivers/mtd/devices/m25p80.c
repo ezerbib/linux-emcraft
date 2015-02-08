@@ -472,15 +472,645 @@ static int m25p80_write(struct mtd_info *mtd, loff_t to, size_t len,
 
 	return 0;
 }
+//#define UBOOT_SPI_BOOST
+#ifdef UBOOT_SPI_BOOST
+/*==========================================================================================*/
+/* try to import u-boot code source  */
+/*==========================================================================================*/
+#include <mach/lpc178x.h>
+#include <mach/platform.h>
+#include <mach/clock.h>
+#include <mach/iomux.h>
+#include <mach/spi.h>
+#include <linux/io.h>
+
+#define CMD_SST_WREN		0x06	/* Write Enable */
+#define CMD_SST_WRDI		0x04	/* Write Disable */
+#define CMD_SST_RDSR		0x05	/* Read Status Register */
+#define CMD_SST_WRSR		0x01	/* Write Status Register */
+#define CMD_SST_READ		0x03	/* Read Data Bytes */
+#define CMD_SST_FAST_READ	0x0b	/* Read Data Bytes at Higher Speed */
+#define CMD_SST_BP		0x02	/* Byte Program */
+#define CMD_SST_AAI_WP		0xAD	/* Auto Address Increment Word Program */
+#define CMD_SST_SE		0x20	/* Sector Erase */
+
+#define SST_SR_WIP		(1 << 0)	/* Write-in-Progress */
+#define SST_SR_WEL		(1 << 1)	/* Write enable */
+#define SST_SR_BP0		(1 << 2)	/* Block Protection 0 */
+#define SST_SR_BP1		(1 << 3)	/* Block Protection 1 */
+#define SST_SR_BP2		(1 << 4)	/* Block Protection 2 */
+#define SST_SR_AAI		(1 << 6)	/* Addressing mode */
+#define SST_SR_BPL		(1 << 7)	/* BP bits lock */
+/* SPI mode flags */
+#define	SPI_CPHA	0x01			/* clock phase */
+#define	SPI_CPOL	0x02			/* clock polarity */
+#define	SPI_MODE_0	(0|0)			/* (original MicroWire) */
+#define	SPI_MODE_1	(0|SPI_CPHA)
+#define	SPI_MODE_2	(SPI_CPOL|0)
+#define	SPI_MODE_3	(SPI_CPOL|SPI_CPHA)
+#define	SPI_CS_HIGH	0x04			/* CS active high */
+#define	SPI_LSB_FIRST	0x08			/* per-word bits-on-wire */
+#define	SPI_3WIRE	0x10			/* SI/SO signals shared */
+#define	SPI_LOOP	0x20			/* loopback mode */
+
+/* SPI transfer flags */
+#define SPI_XFER_BEGIN	0x01			/* Assert CS before transfer */
+#define SPI_XFER_END	0x02			/* Deassert CS after transfer */
+/* SSP registers mapping */
+struct pl022 {
+       u32     ssp_cr0;        /* 0x000 */
+       u32     ssp_cr1;        /* 0x004 */
+       u32     ssp_dr;         /* 0x008 */
+       u32     ssp_sr;         /* 0x00c */
+       u32     ssp_cpsr;       /* 0x010 */
+       u32     ssp_imsc;       /* 0x014 */
+       u32     ssp_ris;        /* 0x018 */
+       u32     ssp_mis;        /* 0x01c */
+       u32     ssp_icr;        /* 0x020 */
+       u32     ssp_dmacr;      /* 0x024 */
+       u8      reserved_1[0x080 - 0x028];
+       u32     ssp_itcr;       /* 0x080 */
+       u32     ssp_itip;       /* 0x084 */
+       u32     ssp_itop;       /* 0x088 */
+       u32     ssp_tdr;        /* 0x08c */
+       u8      reserved_2[0xFE0 - 0x090];
+       u32     ssp_pid0;       /* 0xfe0 */
+       u32     ssp_pid1;       /* 0xfe4 */
+       u32     ssp_pid2;       /* 0xfe8 */
+       u32     ssp_pid3;       /* 0xfec */
+       u32     ssp_cid0;       /* 0xff0 */
+       u32     ssp_cid1;       /* 0xff4 */
+       u32     ssp_cid2;       /* 0xff8 */
+       u32     ssp_cid3;       /* 0xffc */
+};
+
+/* SSP Control Register 0  - SSP_CR0 */
+#define SSP_CR0_SPO            (0x1 << 6)
+#define SSP_CR0_SPH            (0x1 << 7)
+#define SSP_CR0_8BIT_MODE      (0x07)
+#define SSP_SCR_MAX            (0xFF)
+#define SSP_SCR_SHFT           8
+
+/* SSP Control Register 0  - SSP_CR1 */
+#define SSP_CR1_MASK_SSE       (0x1 << 1)
+
+#define SSP_CPSR_MAX           (0xFE)
+
+/* SSP Status Register - SSP_SR */
+#define SSP_SR_MASK_TFE                (0x1 << 0) /* Transmit FIFO empty */
+#define SSP_SR_MASK_TNF                (0x1 << 1) /* Transmit FIFO not full */
+#define SSP_SR_MASK_RNE                (0x1 << 2) /* Receive FIFO not empty */
+#define SSP_SR_MASK_RFF                (0x1 << 3) /* Receive FIFO full */
+#define SSP_SR_MASK_BSY                (0x1 << 4) /* Busy Flag */
+
+struct spi_slave {
+	unsigned int	bus;
+	unsigned int	cs;
+};
+
+struct spi_flash {
+	struct spi_slave *spi;
+
+	const char	*name;
+
+	//u32		size;
+/*
+	int		(*read)(struct spi_flash *flash, u32 offset,
+				size_t len, void *buf);
+	int		(*write)(struct spi_flash *flash, u32 offset,
+				size_t len, const void *buf);
+	int		(*erase)(struct spi_flash *flash, u32 offset,
+				size_t len);
+*/
+};
+
+struct pl022_spi_slave {
+       struct spi_slave slave;
+       void __iomem	 *regs;
+       unsigned int freq;
+};
+
+#define debug(x,...)
+
+
+/**
+ * container_of - cast a member of a structure out to the containing structure
+ * @ptr:	the pointer to the member.
+ * @type:	the type of the container struct this is embedded in.
+ * @member:	the name of the member within the struct.
+ *
+ */
+#define uboot_container_of(ptr, type, member) ({			\
+	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
+	(type *)( (char *)__mptr - offsetof(type,member) );})
+
+static inline struct pl022_spi_slave *to_pl022_spi(struct spi_slave *slave)
+{
+       return uboot_container_of(slave, struct pl022_spi_slave, slave);
+}
+
+struct pl022_spi_slave *spi_alloc_slave(unsigned int bus, unsigned int cs)
+{
+	struct pl022_spi_slave *s;
+	s =kmalloc(sizeof(struct pl022_spi_slave), GFP_KERNEL);
+	if (!s) {
+		return NULL;
+	}
+	s->slave.bus=bus;
+	s->slave.cs=cs;
+	return s;
+}
+
+#define SPI_FLASH_CS_GRP__LPC178X_EVAL_FLASH	0
+#define SPI_FLASH_CS_PIN__LPC178X_EVAL_FLASH	5
+void spi_cs_activate(struct spi_slave *slave)
+{
+	// FLASH SPI CS
+		lpc178x_gpio_out(SPI_FLASH_CS_GRP__LPC178X_EVAL_FLASH,
+					SPI_FLASH_CS_PIN__LPC178X_EVAL_FLASH, 0);
+}
+
+void spi_cs_deactivate(struct spi_slave *slave)
+{
+	// FLASH SPI CS
+		lpc178x_gpio_out(SPI_FLASH_CS_GRP__LPC178X_EVAL_FLASH,
+					SPI_FLASH_CS_PIN__LPC178X_EVAL_FLASH, 1);
+}
+
+int spi_cs_is_valid(unsigned int bus, unsigned int cs)
+{
+       return 1;
+}
+
+#define SSP_CR1(r)	(r + 0x004)
+int spi_claim_bus(struct spi_slave *slave)
+{
+       struct pl022_spi_slave *ps = to_pl022_spi(slave);
+       struct pl022 __iomem *pl022 = (struct pl022 *)ps->regs;
+       int cr1;
+
+       /* Enable the SPI hardware */
+       //setbits_le32(&pl022->ssp_cr1, SSP_CR1_MASK_SSE);
+      // pl022 = ioremap((struct pl022 *)ps->regs, 0xFFF);
+       //release_mem_region(pl022, 0xFFF);
+       //request_mem_region(0x40030000, 0xFFF,"m25p80" );
+
+/*
+       cr1 = readl(&pl022->ssp_cr1);
+       cr1 |= SSP_CR1_MASK_SSE;
+       writel(cr1, &pl022->ssp_cr1);
+*/
+       writew((readw(SSP_CR1(ps->regs)) &
+       			(~SSP_CR1_MASK_SSE)), SSP_CR1(ps->regs));
+//pr_err("after spi_claim_bus");
+       return 0;
+}
+
+void spi_release_bus(struct spi_slave *slave)
+{
+       struct pl022_spi_slave *ps = to_pl022_spi(slave);
+       struct pl022 *pl022 = (struct pl022 *)ps->regs;
+
+       /* Disable the SPI hardware */
+       writel(0x0, &pl022->ssp_cr1);
+}
+
+int spi_xfer(struct spi_slave *slave, unsigned int bitlen,
+               const void *dout, void *din, unsigned long flags)
+{
+       struct pl022_spi_slave *ps = to_pl022_spi(slave);
+       struct pl022 *pl022 = (struct pl022 *)ps->regs;
+       u32             len_tx = 0, len_rx = 0, len;
+       u32             ret = 0;
+       const u8        *txp = dout;
+       u8              *rxp = din, value;
+
+       if (bitlen == 0)
+               /* Finish any previously submitted transfers */
+               goto out;
+
+       /*
+        * TODO: The controller can do non-multiple-of-8 bit
+        * transfers, but this driver currently doesn't support it.
+        *
+        * It's also not clear how such transfers are supposed to be
+        * represented as a stream of bytes...this is a limitation of
+        * the current SPI interface.
+        */
+       if (bitlen % 8) {
+               ret = -1;
+
+               /* Errors always terminate an ongoing transfer */
+               flags |= SPI_XFER_END;
+               goto out;
+       }
+
+       len = bitlen / 8;
+
+       if (flags & SPI_XFER_BEGIN)
+               spi_cs_activate(slave);
+
+       while (len_tx < len) {
+               if (readl(&pl022->ssp_sr) & SSP_SR_MASK_TNF) {
+                       value = (txp != NULL) ? *txp++ : 0;
+                       //printf("spi write=%02X\n",value);
+                       writel(value, &pl022->ssp_dr);
+                       len_tx++;
+               }
+
+               if (readl(&pl022->ssp_sr) & SSP_SR_MASK_RNE) {
+                       value = readl(&pl022->ssp_dr);
+                       //printf("spi write&read=%02X\n",value);
+                       if (rxp)
+                               *rxp++ = value;
+                       len_rx++;
+               }
+       }
+
+       unsigned long timeout = jiffies + msecs_to_jiffies(500);
+       while (len_rx < len_tx) {
+    	   	   if (time_after(jiffies, timeout)) {
+    	   				goto out;
+    	   			}
+               if (readl(&pl022->ssp_sr) & SSP_SR_MASK_RNE) {
+                       value = readl(&pl022->ssp_dr);
+                       //printf("spi read=%02X\n",value);
+                       if (rxp)
+                               *rxp++ = value;
+                       len_rx++;
+               }
+       }
+
+out:
+       if (flags & SPI_XFER_END)
+               spi_cs_deactivate(slave);
+
+       return ret;
+}
+
+int spi_flash_cmd(struct spi_slave *spi, u8 cmd, void *response, size_t len)
+{
+	unsigned long flags = SPI_XFER_BEGIN;
+	int ret;
+
+	if (len == 0)
+		flags |= SPI_XFER_END;
+
+	ret = spi_xfer(spi, 8, &cmd, NULL, flags);
+	if (ret) {
+		debug("SF: Failed to send command %02x: %d\n", cmd, ret);
+		return ret;
+	}
+
+	if (len) {
+		ret = spi_xfer(spi, len * 8, NULL, response, SPI_XFER_END);
+		if (ret)
+			debug("SF: Failed to read response (%zu bytes): %d\n",
+					len, ret);
+	}
+
+	return ret;
+}
+
+static int
+sst_disable_writing(struct spi_flash *flash)
+{
+	int ret = spi_flash_cmd(flash->spi, CMD_SST_WRDI, NULL, 0);
+	if (ret)
+		debug("SF: Disabling Write failed\n");
+	return ret;
+}
+
+static int
+sst_enable_writing(struct spi_flash *flash)
+{
+	int ret = spi_flash_cmd(flash->spi, CMD_SST_WREN, NULL, 0);
+	if (ret)
+		debug("SF: Enabling Write failed\n");
+	return ret;
+}
+
+
+
+#define CONFIG_SYS_SPI_BASE 0x40030000
+#define CONFIG_SYS_SPI_CLK  120000000
+#define CONFIG_SYS_HZ			1000
+#define SPI_FLASH_PROG_TIMEOUT		(2 * CONFIG_SYS_HZ)
+
+int b_spi_init=0;
+struct spi_flash myflash;
+
+void spi_init(void)
+{
+	b_spi_init=1;
+}
+
+/*
+ * ARM PL022 exists in different 'flavors'.
+ * This drivers currently support the standard variant (0x00041022), that has a
+ * 16bit wide and 8 locations deep TX/RX FIFO.
+ */
+static int pl022_is_supported(struct pl022_spi_slave *ps)
+{
+	return 1;
+}
+
+struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
+                       unsigned int max_hz, unsigned int mode)
+{
+       struct pl022_spi_slave *ps;
+       struct pl022 *pl022;
+       u16 scr = 1, prescaler, cr0 = 0, cpsr = 0;
+
+       //printf("spi_setup_slave(bus=%d, cs=%d,hz=%d,mode=%d)\n",bus,cs,max_hz,mode);
+
+       if (!b_spi_init)
+    	   spi_init();
+
+       if (!spi_cs_is_valid(bus, cs))
+               return NULL;
+
+       ps = spi_alloc_slave(bus, cs);
+       if (!ps)
+               return NULL;
+
+       ps->freq = max_hz;
+
+       switch (bus) {
+       case 0:
+               ps->regs = (void *)CONFIG_SYS_SPI_BASE;
+               break;
+       default:
+               kfree(ps);
+               return NULL;
+       }
+
+       pl022 = (struct pl022 *)ps->regs;
+       /* Check the PL022 version */
+       if (!pl022_is_supported(ps)) {
+               kfree(ps);
+               return NULL;
+       }
+
+       /* Set requested polarity and 8bit mode */
+       cr0 = SSP_CR0_8BIT_MODE;
+       cr0 |= (mode & SPI_CPHA) ? SSP_CR0_SPH : 0;
+       cr0 |= (mode & SPI_CPOL) ? SSP_CR0_SPO : 0;
+
+       writel(cr0, &pl022->ssp_cr0);
+
+       /* Program the SSPClk frequency */
+       prescaler = CONFIG_SYS_SPI_CLK / ps->freq;
+       pr_err("prescaler=(%d/%d) => %d\n",CONFIG_SYS_SPI_CLK , ps->freq,prescaler);
+       if (prescaler <= 0xFF) {
+               cpsr = prescaler;
+       } else {
+               for (scr = 1; scr <= SSP_SCR_MAX; scr++) {
+                       if (!(prescaler % scr)) {
+                               cpsr = prescaler / scr;
+                               if (cpsr <= SSP_CPSR_MAX)
+                                       break;
+                       }
+               }
+
+               if (scr > SSP_SCR_MAX) {
+                       scr = SSP_SCR_MAX;
+                       cpsr = prescaler / scr;
+                       cpsr &= SSP_CPSR_MAX;
+               }
+       }
+
+       if (cpsr & 0x1)
+               cpsr++;
+       pr_err("SPI CPSR=%d scr=%d\n",cpsr,scr);
+       writel(cpsr, &pl022->ssp_cpsr);
+       cr0 = readl(&pl022->ssp_cr0);
+       writel(cr0 | (scr - 1) << SSP_SCR_SHFT, &pl022->ssp_cr0);
+       cr0 = readl(&pl022->ssp_cr0);
+       pr_err("SPI CR0=0x%X \n",cr0);
+
+       request_mem_region(0x40030000, 0xFFF,"m25p80" );
+       return &ps->slave;
+}
+
+static void
+uboot_init()
+{
+	struct spi_slave *s;
+	s=spi_setup_slave(0,0,24000000, 3);
+	myflash.spi=s;
+	return;
+}
+
+static int
+sst_wait_ready(struct spi_flash *flash, unsigned long timeout)
+{
+	struct spi_slave *spi = flash->spi;
+	unsigned long timebase;
+	int ret;
+	u8 byte = CMD_SST_RDSR;
+
+	ret = spi_xfer(spi, sizeof(byte) * 8, &byte, NULL, SPI_XFER_BEGIN);
+	if (ret) {
+		debug("SF: Failed to send command %02x: %d\n", byte, ret);
+		return ret;
+	}
+
+	timebase = jiffies;
+	do {
+		ret = spi_xfer(spi, sizeof(byte) * 8, NULL, &byte, 0);
+		if (ret)
+			break;
+
+		if ((byte & SST_SR_WIP) == 0)
+			break;
+
+	} while (jiffies< timebase+ msecs_to_jiffies(timeout));
+
+	spi_xfer(spi, 0, NULL, NULL, SPI_XFER_END);
+
+	if (!ret && (byte & SST_SR_WIP) != 0)
+		ret = -1;
+
+	if (ret)
+		debug("SF: sst wait for ready timed out\n");
+	return ret;
+}
+
+int spi_flash_cmd_write(struct spi_slave *spi, const u8 *cmd, size_t cmd_len,
+		const void *data, size_t data_len)
+{
+	unsigned long flags = SPI_XFER_BEGIN;
+	int ret;
+
+	if (data_len == 0)
+		flags |= SPI_XFER_END;
+
+	ret = spi_xfer(spi, cmd_len * 8, cmd, NULL, flags);
+	if (ret) {
+		debug("SF: Failed to send read command (%zu bytes): %d\n",
+				cmd_len, ret);
+	} else if (data_len != 0) {
+		ret = spi_xfer(spi, data_len * 8, data, NULL, SPI_XFER_END);
+		if (ret)
+			debug("SF: Failed to read %zu bytes of data: %d\n",
+					data_len, ret);
+	}
+
+	return ret;
+}
+
+
+static int
+sst_byte_write(struct spi_flash *flash, u32 offset, const void *buf)
+{
+	int ret;
+	u8 cmd[4] = {
+		CMD_SST_BP,
+		offset >> 16,
+		offset >> 8,
+		offset,
+	};
+
+	debug("BP[%02x]: 0x%p => cmd = { 0x%02x 0x%06x }\n",
+		spi_w8r8(flash->spi, CMD_SST_RDSR), buf, cmd[0], offset);
+
+	ret = sst_enable_writing(flash);
+	if (ret)
+		return ret;
+
+	ret = spi_flash_cmd_write(flash->spi, cmd, sizeof(cmd), buf, 1);
+	if (ret)
+		return ret;
+
+	return sst_wait_ready(flash, SPI_FLASH_PROG_TIMEOUT);
+}
+
+
+static int
+uboot_sst_write(struct spi_flash *flash, u32 offset, size_t len, const void *buf)
+{
+	size_t actual, cmd_len;
+	int ret;
+	u8 cmd[4];
+
+	//printf("#");
+
+	ret = spi_claim_bus(flash->spi);
+	if (ret) {
+		debug("SF: Unable to claim SPI bus\n");
+		return ret;
+	}
+
+	/* If the data is not word aligned, write out leading single byte */
+	actual = offset % 2;
+	if (actual) {
+		ret = sst_byte_write(flash, offset, buf);
+		if (ret)
+			goto done;
+	}
+	offset += actual;
+
+	ret = sst_enable_writing(flash);
+	if (ret)
+		goto done;
+
+	cmd_len = 4;
+	cmd[0] = CMD_SST_AAI_WP;
+	cmd[1] = offset >> 16;
+	cmd[2] = offset >> 8;
+	cmd[3] = offset;
+
+	for (; actual < len - 1; actual += 2) {
+		debug("WP[%02x]: 0x%p => cmd = { 0x%02x 0x%06x }\n",
+		     spi_w8r8(flash->spi, CMD_SST_RDSR), buf + actual, cmd[0],
+		     offset);
+
+		/*if (actual%20480==0)
+		{
+			printf("#");
+		}*/
+
+
+		ret = spi_flash_cmd_write(flash->spi, cmd, cmd_len,
+		                          buf + actual, 2);
+		if (ret) {
+			debug("SF: sst word program failed\n");
+			break;
+		}
+
+		ret = sst_wait_ready(flash, SPI_FLASH_PROG_TIMEOUT);
+		if (ret)
+			break;
+
+		cmd_len = 1;
+		offset += 2;
+
+	}
+
+	//printf("\n");
+
+	if (!ret)
+		ret = sst_disable_writing(flash);
+
+	/* If there is a single trailing byte, write it out */
+	if (!ret && actual != len)
+		ret = sst_byte_write(flash, offset, buf + actual);
+
+ done:
+	debug("SF: sst: program %s %zu bytes @ 0x%zx\n",
+	      ret ? "failure" : "success", len, offset - actual);
+
+	spi_release_bus(flash->spi);
+	return ret;
+}
 
 static int sst_write(struct mtd_info *mtd, loff_t to, size_t len,
 		size_t *retlen, const u_char *buf)
 {
 	struct m25p *flash = mtd_to_m25p(mtd);
-	struct spi_transfer t[2];
+	int ret;
+
+	if (retlen)
+		*retlen = 0;
+
+	/* sanity checks */
+	if (!len)
+		return 0;
+
+	if (to + len > flash->mtd.size)
+		return -EINVAL;
+
+	mutex_lock(&flash->lock);
+	/* Wait until finished previous write command. */
+	ret = wait_till_ready(flash);
+	if (ret)
+		goto time_out;
+
+	//write_enable(flash);
+
+	ret=uboot_sst_write(&myflash, to, len, buf);
+	*retlen=(ret==0)?len:0;
+
+	//write_disable(flash);
+	//ret = wait_till_ready(flash);
+	//if (ret)
+	//	goto time_out;
+
+time_out:
+	mutex_unlock(&flash->lock);
+	return ret;
+}
+
+#else
+static int sst_write(struct mtd_info *mtd, loff_t to, size_t len,
+		size_t *retlen, const u_char *buf)
+{
+	struct m25p *flash = mtd_to_m25p(mtd);
+	struct spi_transfer t[8];
 	struct spi_message m;
 	size_t actual;
-	int cmd_sz, ret;
+	int cmd_sz, ret/*,l*/;
 
 	if (retlen)
 		*retlen = 0;
@@ -529,9 +1159,129 @@ static int sst_write(struct mtd_info *mtd, loff_t to, size_t len,
 
 	flash->command[0] = OPCODE_AAI_WP;
 	m25p_addr2cmd(flash, to, flash->command);
-
 	/* Write out most of the data here. */
 	cmd_sz = m25p_cmdsz(flash);
+
+#if 0
+	l=len-*retlen;
+	if (l/8>=1)
+	{
+		//pr_err("x8- len=%d to=%ld\n",len,to);
+		struct spi_message m2;
+		int j;
+
+		spi_message_init(&m2);
+
+		spi_message_add_tail(&t[0], &m2);
+		spi_message_add_tail(&t[1], &m2);
+		spi_message_add_tail(&t[2], &m2);
+		spi_message_add_tail(&t[3], &m2);
+		spi_message_add_tail(&t[4], &m2);
+		spi_message_add_tail(&t[5], &m2);
+		spi_message_add_tail(&t[6], &m2);
+		spi_message_add_tail(&t[7], &m2);
+
+		t[1].len = 2;
+
+		t[2].len = 1;
+		t[2].tx_buf = flash->command;
+
+		t[3].len = 2;
+
+		t[4].len = 1;
+		t[4].tx_buf = flash->command;
+
+		t[5].len = 2;
+
+		t[6].len = 1;
+		t[6].tx_buf = flash->command;
+
+		t[7].len = 2;
+
+		//original code
+		for (j=0; j<l/8; j++)
+		{
+			t[0].len = cmd_sz;
+			/* write two bytes. */
+			t[1].tx_buf = buf + actual;
+			/* write two bytes. */
+
+			t[3].tx_buf = buf + actual + 2;
+
+			t[5].tx_buf = buf + actual + 4;
+
+			t[7].tx_buf = buf + actual + 6;
+
+			spi_sync(flash->spi, &m2);
+			*retlen += m2.actual_length - cmd_sz - 3;
+			cmd_sz = 1;
+			to += 8;
+			actual += 8;
+		}
+	}
+	l=len-*retlen;
+	if (l/4>=1)
+	{
+		//pr_err("x4- len=%d to=%ld\n",len,to);
+		struct spi_message m2;
+		int j=0;
+		spi_message_init(&m2);
+
+		spi_message_add_tail(&t[0], &m2);
+		spi_message_add_tail(&t[1], &m2);
+		spi_message_add_tail(&t[2], &m2);
+		t[1].len = 2;
+
+		t[2].len = 1;
+		t[2].tx_buf = flash->command;
+
+		t[3].len = 2;
+
+		spi_message_add_tail(&t[3], &m2);
+		//original code
+		for (; j<l/4;j++) {
+			t[0].len = cmd_sz;
+			/* write two bytes. */
+			t[1].tx_buf = buf + actual;
+			/* write two bytes. */
+
+			t[3].tx_buf = buf + actual + 2;
+
+			spi_sync(flash->spi, &m2);
+			*retlen += m2.actual_length - cmd_sz - 1;
+			cmd_sz = 1;
+			to += 4;
+			actual += 4;
+		}
+	}
+	l=len-*retlen;
+	if (l/2>=1)
+	{
+		int j=0;
+		//original code
+		for (; j < l/2; j++)
+		{
+			t[0].len = cmd_sz;
+			/* write two bytes. */
+			t[1].len = 2;
+			t[1].tx_buf = buf + actual;
+
+			spi_sync(flash->spi, &m);
+	#if 0
+			// wait 200ms per call but the previous spi_sync is also 190ms
+			// so we don't need to wait it while the spec of the flash is only 10 micro sec
+			ret = wait_till_ready(flash);
+			if (ret)
+				goto time_out;
+	#endif
+			*retlen += m.actual_length - cmd_sz;
+			cmd_sz = 1;
+			to += 2;
+			actual += 2;
+		}
+	}
+#endif
+
 	for (; actual < len - 1; actual += 2) {
 		t[0].len = cmd_sz;
 		/* write two bytes. */
@@ -576,6 +1326,7 @@ time_out:
 	mutex_unlock(&flash->lock);
 	return ret;
 }
+#endif
 
 /****************************************************************************/
 
@@ -933,6 +1684,7 @@ static int __devinit m25p_probe(struct spi_device *spi)
 		dev_warn(&spi->dev, "ignoring %d default partitions on %s\n",
 				data->nr_parts, data->name);
 
+
 	return add_mtd_device(&flash->mtd) == 1 ? -ENODEV : 0;
 }
 
@@ -974,6 +1726,9 @@ static struct spi_driver m25p80_driver = {
 
 static int __init m25p80_init(void)
 {
+#ifdef UBOOT_SPI_BOOST
+	uboot_init();
+#endif
 	return spi_register_driver(&m25p80_driver);
 }
 
