@@ -1289,6 +1289,9 @@ static int sst_write(struct mtd_info *mtd, loff_t to, size_t len,
 		t[1].tx_buf = buf + actual;
 
 		spi_sync(flash->spi, &m);
+		//spi_write(flash->spi,t[0].tx_buf,t[0].len);
+		//spi_write(flash->spi,t[1].tx_buf,t[1].len);
+		//m.actual_length=t[0].len+t[1].len;
 #if 0
 		// wait 200ms per call but the previous spi_sync is also 190ms
 		// so we don't need to wait it while the spec of the flash is only 10 micro sec
@@ -1301,9 +1304,13 @@ static int sst_write(struct mtd_info *mtd, loff_t to, size_t len,
 		to += 2;
 	}
 	write_disable(flash);
+#if 0
+	// wait 200ms per call but the previous spi_sync is also 190ms
+	// so we don't need to wait it while the spec of the flash is only 10 micro sec
 	ret = wait_till_ready(flash);
 	if (ret)
 		goto time_out;
+#endif
 
 	/* Write out trailing byte if it exists. */
 	if (actual != len) {
@@ -1315,9 +1322,13 @@ static int sst_write(struct mtd_info *mtd, loff_t to, size_t len,
 		t[1].tx_buf = buf + actual;
 
 		spi_sync(flash->spi, &m);
+#if 0
+		// wait 200ms per call but the previous spi_sync is also 190ms
+		// so we don't need to wait it while the spec of the flash is only 10 micro sec
 		ret = wait_till_ready(flash);
 		if (ret)
 			goto time_out;
+#endif
 		*retlen += m.actual_length - m25p_cmdsz(flash);
 		write_disable(flash);
 	}
@@ -1422,6 +1433,7 @@ static const struct spi_device_id m25p_ids[] = {
 	{ "sst25wf010",  INFO(0xbf2502, 0, 64 * 1024,  2, SECT_4K) },
 	{ "sst25wf020",  INFO(0xbf2503, 0, 64 * 1024,  4, SECT_4K) },
 	{ "sst25wf040",  INFO(0xbf2504, 0, 64 * 1024,  8, SECT_4K) },
+	{ "sst26vf032b", INFO(0xbf2602, 0, 64 * 1024, 64, SECT_4K) },
 
 	/* ST Microelectronics -- newer production may have feature updates */
 	{ "m25p05",  INFO(0x202010,  0,  32 * 1024,   2, 0) },
