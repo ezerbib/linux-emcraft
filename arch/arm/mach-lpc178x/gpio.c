@@ -211,6 +211,7 @@ struct gpio_private {
 /* linked list of alarms to check for */
 
 static struct gpio_private *alarmlist=NULL;
+static int irq_requested = 0;
 static DEFINE_SPINLOCK(alarm_lock);
 static DEFINE_SPINLOCK(gpio_lock);
 
@@ -537,6 +538,10 @@ static int install_irq(IRQn_Type IntNumber,irq_handler_t HandlerAddr,unsigned in
 	{
 		pr_info("Can't install IRQ %d - return code=%d\n",IntNumber,ret);
 	}
+	else
+	{
+		irq_requested = 1;
+	}
 	return 0;
 }
 
@@ -689,12 +694,12 @@ gpio_ioctl(struct inode *inode, struct file *file,
 				if (portnum==0)
 				{
 					priv->intalarm.P0IntStatR |=  (1<<pinnum);
-					pr_info("lpcpio:install raise alarm for port:%d, pin:%d\n",portnum,pinnum);
+					//pr_info("lpcpio:install raise alarm for port:%d, pin:%d\n",portnum,pinnum);
 				}
 				else if (portnum==2)
 				{
 					priv->intalarm.P2IntStatR |=  (1<<pinnum);
-					pr_info("lpcpio:install raise alarm for port:%d, pin:%d\n",portnum,pinnum);
+					//pr_info("lpcpio:install raise alarm for port:%d, pin:%d\n",portnum,pinnum);
 				}
 				else
 					return -EINVAL;
@@ -709,12 +714,12 @@ gpio_ioctl(struct inode *inode, struct file *file,
 				if (portnum==0)
 				{
 					priv->intalarm.P0IntStatF |=  (1<<pinnum);
-					pr_info("lpcpio:install falling alarm for port:%d, pin:%d\n",portnum,pinnum);
+					//pr_info("lpcpio:install falling alarm for port:%d, pin:%d\n",portnum,pinnum);
 				}
 				else if (portnum==2)
 				{
 					priv->intalarm.P2IntStatF |=  (1<<pinnum);
-					pr_info("lpcpio:install falling alarm for port:%d, pin:%d\n",portnum,pinnum);
+					//pr_info("lpcpio:install falling alarm for port:%d, pin:%d\n",portnum,pinnum);
 				}
 				else
 					return -EINVAL;
@@ -792,10 +797,10 @@ static int
 gpio_open(struct inode *inode, struct file *filp)
 {
 	struct gpio_private *priv;
-	int p = iminor(inode);
+	//int p = iminor(inode);
 
-	if (p > GPIO_MINOR_LAST)
-		return -EINVAL;
+	//if (p > GPIO_MINOR_LAST)
+	//	return -EINVAL;
 
 	priv = kmalloc(sizeof(struct gpio_private), GFP_KERNEL);
 	if (!priv)
@@ -804,7 +809,7 @@ gpio_open(struct inode *inode, struct file *filp)
 	lock_kernel();
 	memset(priv, 0, sizeof(*priv));
 
-	priv->minor = p;
+	priv->minor = GPIO_MINOR_A;
 
 	/* initialize the io/alarm struct */
 
@@ -859,22 +864,25 @@ gpio_release(struct inode *inode, struct file *filp)
 		p->next = todel->next;
 	}
 
-	kfree(todel);
 	/* Check if there are still any alarms set */
 	p = alarmlist;
 	some_alarms = 0;
 	while (p) {
 		if (p->minor == GPIO_MINOR_A)
 		{
-		some_alarms = 1;
+			some_alarms = 1;
 		}
 		p = p->next;
 	}
 
-	if (some_alarms==0)
+	if ((some_alarms==0)&&(irq_requested == 1))
 	{
-		free_irq(GPIO_IRQn, NULL);
+		free_irq(GPIO_IRQn, todel);
+		irq_requested = 0;
 	}
+
+	kfree(todel);
+
 	spin_unlock_irq(&alarm_lock);
 
 	return 0;
