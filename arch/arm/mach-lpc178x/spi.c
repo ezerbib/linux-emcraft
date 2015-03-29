@@ -39,7 +39,8 @@
 #include <mach/iomux.h>
 #include <mach/spi.h>
 
-#define SST25
+//#define SST25
+#define SST25_64MB
 
 /* 
  * Size of the SSP/SPI controller register area 
@@ -270,6 +271,16 @@ void  lpc178x_spi_init(void)
 					.nr_parts =
 					ARRAY_SIZE(spi_lpc178x_flash_partitions__lpc178x_eval),
 					.type = "sst25vf032b",
+				};
+#endif
+#ifdef SST25_64MB
+				static struct flash_platform_data
+					spi_lpc18xx_flash_data__lpc18xx_eval = {
+					.name = "sst25vf064c",
+					.parts =  spi_lpc178x_flash_partitions__lpc178x_eval,
+					.nr_parts =
+					ARRAY_SIZE(spi_lpc178x_flash_partitions__lpc178x_eval),
+					.type = "sst25vf064c",
 				};
 #endif
 #ifdef SST26
